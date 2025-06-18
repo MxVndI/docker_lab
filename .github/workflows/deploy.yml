@@ -86,22 +86,51 @@ jobs:
           echo "SSH Passphrase exists: ${{ secrets.SSH_KEY_PASSPHRASE != '' }}"
 
       - name: Setup SSH
+        env:
+          SSH_HOME: /home/runner/.ssh
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          echo "Setting up SSH..."
+          echo "Current user: $(whoami)"
+          echo "Current directory: $(pwd)"
+          echo "Home directory: $HOME"
+          echo "SSH_HOME: $SSH_HOME"
+          
+          # Create SSH directory with explicit path
+          mkdir -p $SSH_HOME
+          echo "SSH directory created"
+          
+          # Write private key with proper formatting
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > $SSH_HOME/id_rsa
+          chmod 600 $SSH_HOME/id_rsa
+          echo "Private key written"
+          
+          # Verify key format
+          echo "Checking SSH key format..."
+          head -1 $SSH_HOME/id_rsa
+          tail -1 $SSH_HOME/id_rsa
+          
+          # Add host to known_hosts
+          ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> $SSH_HOME/known_hosts
+          echo "Host added to known_hosts"
+          
+          # Set SSH environment
+          export SSH_AUTH_SOCK=/tmp/ssh-agent.sock
+          echo "SSH setup completed"
 
       - name: Test SSH connection
+        env:
+          SSH_HOME: /home/runner/.ssh
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "echo 'SSH connection successful'"
+          ssh -p ${{ secrets.SSH_PORT }} -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "echo 'SSH connection successful'"
 
       - name: Deploy to server
+        env:
+          SSH_HOME: /home/runner/.ssh
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman stop python-crud || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rm python-crud || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rmi ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman pull ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman run -d --name python-crud --network host ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman stop python-crud || true"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rm python-crud || true"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rmi ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest || true"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman pull ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman run -d --name python-crud --network host ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
           echo "Container has been deployed successfully!"
