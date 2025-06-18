@@ -72,6 +72,16 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest
 
+      - name: Success message
+        run: |
+          echo "✅ Docker image successfully pushed to Docker Hub!"
+          echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
+
+  deploy-ssh:
+    needs: deploy
+    runs-on: ubuntu-latest
+    
+    steps:
       - name: Debug SSH connection
         run: |
           echo "SSH Host: ${{ secrets.SSH_HOST }}"
