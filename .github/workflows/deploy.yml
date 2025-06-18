@@ -2,11 +2,11 @@ name: Deploy
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: [ "master" ]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services:
       postgres:
         image: postgres:15-alpine
@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: test
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -33,110 +35,62 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./Dockerfile
-          tags: kubsu/python-crud-dev:latest
+          file: ./Dockerfile.dev
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/python-crud-dev:latest
           load: true
 
       - name: Run tests
-        env:
-          DATABASE_URL: "postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu"
-          PYTHONPATH: .
         run: |
-          docker run --rm --network=host -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu" -e PYTHONPATH=. kubsu/python-crud-dev:latest python -m pytest -v tests/
+          docker run --rm --network=host ${{ vars.DOCKERHUB_USERNAME }}/python-crud-dev:latest
+
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
-    
+    runs-on: self-hosted
+
     steps:
       - name: Checkout master branch
         uses: actions/checkout@v4
+        with:
+          ref: master
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Debug credentials
-        run: |
-          echo "Using Docker Hub username: ${{ secrets.DOCKERHUB_USERNAME }}"
-          echo "Token exists: ${{ secrets.DOCKERHUB_TOKEN != '' }}"
-
       - name: Login to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.prod
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/pythod-crud:latest
 
-      - name: Success message
-        run: |
-          echo "✅ Docker image successfully pushed to Docker Hub!"
-          echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
+      - name: Deploy to on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            podman login -u ${{ vars.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io
 
-      - name: Debug SSH connection
-        run: |
-          echo "SSH Host: ${{ secrets.SSH_HOST }}"
-          echo "SSH Port: ${{ secrets.SSH_PORT }}"
-          echo "SSH Username: ${{ secrets.SSH_USERNAME }}"
-          echo "SSH Key exists: ${{ secrets.SSH_PRIVATE_KEY != '' }}"
-          echo "SSH Passphrase exists: ${{ secrets.SSH_KEY_PASSPHRASE != '' }}"
+            # Stop and remove existing container if it exists
+            podman stop pythod-crud || true
+            podman rm pythod-crud || true
 
-      - name: Setup SSH
-        env:
-          SSH_HOME: /home/runner/.ssh
-        run: |
-          echo "Setting up SSH..."
-          echo "Current user: $(whoami)"
-          echo "Current directory: $(pwd)"
-          echo "Home directory: $HOME"
-          echo "SSH_HOME: $SSH_HOME"
-          
-          # Create SSH directory with explicit path
-          mkdir -p $SSH_HOME
-          echo "SSH directory created"
-          
-          # Write private key with proper formatting
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > $SSH_HOME/id_rsa
-          chmod 600 $SSH_HOME/id_rsa
-          echo "Private key written"
-          
-          # Verify key format (with error handling)
-          echo "Checking SSH key format..."
-          if [ -s "$SSH_HOME/id_rsa" ]; then
-            echo "Key file exists and is not empty"
-            echo "First line: $(head -1 $SSH_HOME/id_rsa | cut -c1-20)..."
-            echo "Last line: $(tail -1 $SSH_HOME/id_rsa | cut -c1-20)..."
-          else
-            echo "ERROR: SSH key file is empty or missing"
-            exit 1
-          fi
-          
-          # Add host to known_hosts
-          ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> $SSH_HOME/known_hosts
-          echo "Host added to known_hosts"
-          
-          # Set SSH environment
-          export SSH_AUTH_SOCK=/tmp/ssh-agent.sock
-          echo "SSH setup completed"
+            # Remove existing image if it exists
+            podman rmi ${{ vars.DOCKERHUB_USERNAME }}/pythod-crud:latest || true
 
-      - name: Test SSH connection
-        env:
-          SSH_HOME: /home/runner/.ssh
-        run: |
-          ssh -p ${{ secrets.SSH_PORT }} -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "echo 'SSH connection successful'"
+            # Pull new image from Docker Hub
+            podman pull ${{ vars.DOCKERHUB_USERNAME }}/pythod-crud:latest
 
-      - name: Deploy to server
-        env:
-          SSH_HOME: /home/runner/.ssh
-        run: |
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman stop python-crud || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rm python-crud || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman rmi ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest || true"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman pull ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i $SSH_HOME/id_rsa ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "podman run -d --name python-crud --network host ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
-          echo "Container has been deployed successfully!"
+            # Run new container
+            podman run -d --name pythod-crud --network host ${{ vars.DOCKERHUB_USERNAME }}/pythod-crud:latest
+            echo "Container has been deployed successfully!"
