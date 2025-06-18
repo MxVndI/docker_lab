@@ -81,7 +81,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          ssh-add-cmd: echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add -
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
