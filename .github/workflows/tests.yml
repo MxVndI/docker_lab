@@ -35,8 +35,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install poetry
-        poetry install --no-root --with test
+        pip install -e .[test]
 
     - name: Run tests
       env:
@@ -49,5 +48,7 @@ jobs:
         docker build -t kubsu-app .
 
     - name: Run container tests
+      env:
+        DATABASE_URL: "postgresql+psycopg://kubsu:kubsu@host.docker.internal:5432/kubsu"
       run: |
-        docker run --network host -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu" kubsu-app pytest -v tests/
+        docker run --add-host=host.docker.internal:host-gateway -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@host.docker.internal:5432/kubsu" kubsu-app pytest -v tests/
