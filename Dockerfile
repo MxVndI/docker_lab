@@ -18,6 +18,6 @@ COPY --from=builder /app /app
 
 ENV PATH=/root/.local/bin:$PATH
 
-EXPOSE 58529
+EXPOSE 8021
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "60080"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8021"]
