@@ -104,10 +104,16 @@ jobs:
           chmod 600 $SSH_HOME/id_rsa
           echo "Private key written"
           
-          # Verify key format
+          # Verify key format (with error handling)
           echo "Checking SSH key format..."
-          head -1 $SSH_HOME/id_rsa
-          tail -1 $SSH_HOME/id_rsa
+          if [ -s "$SSH_HOME/id_rsa" ]; then
+            echo "Key file exists and is not empty"
+            echo "First line: $(head -1 $SSH_HOME/id_rsa | cut -c1-20)..."
+            echo "Last line: $(tail -1 $SSH_HOME/id_rsa | cut -c1-20)..."
+          else
+            echo "ERROR: SSH key file is empty or missing"
+            exit 1
+          fi
           
           # Add host to known_hosts
           ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> $SSH_HOME/known_hosts
