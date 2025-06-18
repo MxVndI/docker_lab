@@ -34,7 +34,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          tags: ${{ vars.DOCKERHUB_USERNAME || 'kubsu' }}/python-crud-dev:latest
+          tags: kubsu/python-crud-dev:latest
           load: true
 
       - name: Run tests
@@ -42,7 +42,7 @@ jobs:
           DATABASE_URL: "postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu"
           PYTHONPATH: .
         run: |
-          docker run --rm --network=host -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu" -e PYTHONPATH=. ${{ vars.DOCKERHUB_USERNAME || 'kubsu' }}/python-crud-dev:latest python -m pytest -v tests/
+          docker run --rm --network=host -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu" -e PYTHONPATH=. kubsu/python-crud-dev:latest python -m pytest -v tests/
 
   deploy:
     needs: test
