@@ -4,11 +4,6 @@ on:
   push:
     branches: [ "master", "main" ]
 
-env:
-  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud
-  APP_PORT: 8000
-  CONTAINER_PORT: 8000
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -49,15 +44,21 @@ jobs:
         run: |
           docker run --rm --network=host -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu" -e PYTHONPATH=. kubsu/python-crud-dev:latest python -m pytest -v tests/
 
-  build-and-push:
+  deploy:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+
     steps:
-      - name: Checkout code
+      - name: Checkout master branch
         uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Debug credentials
+        run: |
+          echo "Using Docker Hub username: ${{ secrets.DOCKERHUB_USERNAME }}"
+          echo "Token exists: ${{ secrets.DOCKERHUB_TOKEN != '' }}"
 
       - name: Login to Docker Hub
         run: |
@@ -69,33 +70,23 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest
 
-  deploy:
-    needs: build-and-push
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Save SSH key
-        shell: cmd
+      - name: Success message
         run: |
-          echo %SSH_PRIVATE_KEY% > id_rsa
-
-      - name: Fix SSH key permissions
-        shell: cmd
-        run: |
-          icacls id_rsa /inheritance:r
-          icacls id_rsa /grant:r "%USERNAME%:R"
+          echo "✅ Docker image successfully pushed to Docker Hub!"
+          echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
 
       - name: Deploy to server
-        shell: cmd
         run: |
-          ssh -i id_rsa -o StrictHostKeyChecking=no -p 58529 brown@kubsu.tyvik.ru ^
-          "podman login -u %DOCKERHUB_USERNAME% -p %DOCKERHUB_TOKEN% docker.io && ^
-          podman pull %DOCKER_IMAGE%:latest && ^
-          (podman stop python-crud || exit 0) && ^
-          (podman rm python-crud || exit 0) && ^
-          podman run -d --name python-crud --network host %DOCKER_IMAGE%:latest"
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+            -p ${{ secrets.SSH_PORT }} \
+            "podman pull ${{ secrets.DOCKERHUB_USERNAME }}/administration:latest \
+             && podman stop $CONTAINER_NAME || true \
+             && podman rm $CONTAINER_NAME || true \
+             && podman run -d \
+                --network host \
+                --name $CONTAINER_NAME \
+                -e DATABASE_URL='postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu' \
+                ${{ secrets.DOCKERHUB_USERNAME }}/administration:latest"
