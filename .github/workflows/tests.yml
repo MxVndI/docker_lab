@@ -40,6 +40,7 @@ jobs:
     - name: Run tests
       env:
         DATABASE_URL: "postgresql+psycopg://kubsu:kubsu@localhost:5432/kubsu"
+        PYTHONPATH: .
       run: |
         pytest -v tests/
 
@@ -50,5 +51,6 @@ jobs:
     - name: Run container tests
       env:
         DATABASE_URL: "postgresql+psycopg://kubsu:kubsu@host.docker.internal:5432/kubsu"
+        PYTHONPATH: .
       run: |
-        docker run --add-host=host.docker.internal:host-gateway -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@host.docker.internal:5432/kubsu" kubsu-app pytest -v tests/
+        docker run --add-host=host.docker.internal:host-gateway -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@host.docker.internal:5432/kubsu" -e PYTHONPATH=. kubsu-app pytest -v tests/
