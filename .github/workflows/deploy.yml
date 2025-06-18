@@ -78,10 +78,10 @@ jobs:
           echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
 
       - name: Add SSH key via ssh-agent
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-add-cmd: echo "123" | ssh-add -
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "123" | ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+          ssh-add -l
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
