@@ -72,6 +72,11 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest
 
+      - name: Success message
+        run: |
+          echo "✅ Docker image successfully pushed to Docker Hub!"
+          echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
@@ -79,7 +84,9 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          passphrase: "123"
+          timeout: 60s
+          command_timeout: 60s
           script: |
             podman login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io
 
