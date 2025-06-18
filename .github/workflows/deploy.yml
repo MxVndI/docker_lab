@@ -77,6 +77,11 @@ jobs:
           echo "✅ Docker image successfully pushed to Docker Hub!"
           echo "Image: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest"
 
+      - name: Add SSH key via ssh-agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
