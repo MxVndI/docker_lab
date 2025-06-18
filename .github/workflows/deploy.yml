@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services:
       postgres:
         image: postgres:15-alpine
@@ -46,8 +46,8 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
+    
     steps:
       - name: Checkout master branch
         uses: actions/checkout@v4
@@ -85,8 +85,6 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: "123"
-          timeout: 60s
-          command_timeout: 60s
           script: |
             podman login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} docker.io
 
