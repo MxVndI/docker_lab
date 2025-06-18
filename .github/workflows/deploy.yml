@@ -72,6 +72,14 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-crud:latest
 
+      - name: Debug SSH connection
+        run: |
+          echo "SSH Host: ${{ secrets.SSH_HOST }}"
+          echo "SSH Port: ${{ secrets.SSH_PORT }}"
+          echo "SSH Username: ${{ secrets.SSH_USERNAME }}"
+          echo "SSH Key exists: ${{ secrets.SSH_PRIVATE_KEY != '' }}"
+          echo "SSH Passphrase exists: ${{ secrets.SSH_KEY_PASSPHRASE != '' }}"
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
