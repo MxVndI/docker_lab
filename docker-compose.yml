@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8021:8021"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+psycopg://kubsu:kubsu@postgres:5432/kubsu
+
+  postgres:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kubsu -d kubsu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=kubsu
+      - POSTGRES_PASSWORD=kubsu
+      - POSTGRES_DB=kubsu
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
