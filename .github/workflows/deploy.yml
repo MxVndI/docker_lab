@@ -122,7 +122,7 @@ jobs:
           podman ps -a --filter name=kubsu-postgres
           
           echo "App container logs:"
-          podman logs python-crud --tail 20
+          podman logs --tail 20 python-crud
           
           echo "Health check:"
           curl -f http://localhost:8021/health || echo "❌ Health check failed"
