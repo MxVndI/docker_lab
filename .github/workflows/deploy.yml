@@ -140,3 +140,4 @@ jobs:
             echo "Deployment completed!"
             echo "Deployed app: ${{ env.IMAGE_NAME }}:${{ github.sha }}"
             echo "PostgreSQL data: /var/lib/kubsu/postgres_data"
+        docker: false
