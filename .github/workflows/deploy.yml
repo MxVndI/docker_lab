@@ -73,8 +73,8 @@ jobs:
     steps:
       - name: Deploy on server
         run: |
-          echo "Creating postgres data directory..."
-          mkdir -p /var/lib/kubsu/postgres_data
+          export DATA_DIR="${{ github.workspace }}/kubsu_postgres_data"
+          mkdir -p "$DATA_DIR"
           
           echo "Starting PostgreSQL container..."
           podman stop kubsu-postgres || true
@@ -84,7 +84,7 @@ jobs:
             -e POSTGRES_USER=kubsu \
             -e POSTGRES_PASSWORD=kubsu \
             -e POSTGRES_DB=kubsu \
-            -v /var/lib/kubsu/postgres_data:/var/lib/postgresql/data \
+            -v "$DATA_DIR":/var/lib/postgresql/data \
             postgres:15-alpine
           
           echo "Waiting for PostgreSQL to start..."
@@ -132,5 +132,5 @@ jobs:
           
           echo "Deployment completed!"
           echo "Deployed app: ${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          echo "PostgreSQL data: /var/lib/kubsu/postgres_data"
+          echo "PostgreSQL data: $DATA_DIR"
         
