@@ -96,8 +96,8 @@ jobs:
           echo "Cleaning up old app images..."
           podman rmi ${{ env.IMAGE_NAME }}:latest || true
           
-          echo "Force pulling latest app image..."
-          podman pull --disable-compression ${{ env.IMAGE_NAME }}:latest
+          echo "Pulling latest app image..."
+          podman pull ${{ env.IMAGE_NAME }}:latest
           
           echo "Image info:"
           podman inspect ${{ env.IMAGE_NAME }}:latest --format '{{.Created}}' || echo "No image info"
