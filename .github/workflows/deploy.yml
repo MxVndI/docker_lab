@@ -78,8 +78,8 @@ jobs:
           
           echo "Starting PostgreSQL container..."
           podman stop kubsu-postgres || true
-          podman rm kubsu-postgres || true
-          podman run -d --name kubsu-postgres \
+          podman rm --force kubsu-postgres || true
+          podman run -d --name kubsu-postgres --replace \
             --network host \
             -e POSTGRES_USER=kubsu \
             -e POSTGRES_PASSWORD=kubsu \
